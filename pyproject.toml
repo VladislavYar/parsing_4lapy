@@ -1,0 +1,46 @@
+[tool.poetry]
+name = "parsing-4lapy"
+version = "0.1.0"
+description = "Парсер мобильного приложения \"Четыре лапы\"."
+authors = ["Vladislav Yaremenko <vlad.yaremenko.98@yandex.ru>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pre-commit = "^4.0.1"
+ruff = "^0.7.0"
+python-dotenv = "^1.0.1"
+aiohttp = "^3.10.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".venv",
+    ".vscode",
+    "venv",
+    "frontendruff",
+    "migrations",
+]
+target-version = "py310"
+line-length = 79
+lint.ignore = ["D"]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true
