@@ -2,8 +2,13 @@ import hashlib
 import asyncio
 import copy
 from urllib import parse
+import json
+from os.path import join
+from pathlib import Path
 
 import aiohttp
+import aiofiles
+from slugify import slugify
 
 from config import Config
 from typings import (
@@ -17,13 +22,8 @@ from typings import (
 
 
 class Parser:
-    """Парсер магазина 'Четыре Лапы'
+    """Парсер магазина 'Четыре Лапы'."""
 
-    Attributes:
-        config (Config): конфигурация проекта.
-    """
-
-    config = Config()
     __default = object()
 
     def _get_hash(self, value: str | int) -> str:
@@ -53,7 +53,7 @@ class Parser:
         for value in params.values():
             values.append(self._get_hash(value))
         values.sort()
-        sign = self.config.SALT
+        sign = Config.SALT
         for value in values:
             sign += value
         return self._get_hash(sign)
@@ -64,28 +64,28 @@ class Parser:
         Returns:
             str: токен.
         """
-        headers = {'Authorization': self.config.AUTHORIZATION}
+        headers = {'Authorization': Config.AUTHORIZATION}
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                self.config.URL_GET_TOKEN,
+                Config.URL_GET_TOKEN,
                 headers=headers,
             ) as response:
                 data = await response.json()
         return data['data']['token']
 
     def _get_url_products_page(self, params: Params) -> str:
-        """Отдаёт URL страницы продуктов.
+        """Отдаёт URL страницы товаров.
 
         Args:
             params (Params): параметры запроса.
 
         Returns:
-            str: URL страницы продуктов.
+            str: URL страницы товаров.
         """
         params = copy.deepcopy(params)
         params['sign'] = self._get_sign(params)
         params = parse.urlencode(params)
-        return f'{self.config.URL_PRODUCTS_CATALOG}?{params}'
+        return f'{Config.URL_PRODUCTS_CATALOG}?{params}'
 
     def _get_all_url_products_page(
         self,
@@ -113,7 +113,7 @@ class Parser:
         """Отдаёт данные по форме.
 
         Args:
-            ids_products (list[int]): ids продуктов.
+            ids_products (list[int]): ids товаров.
             params (Params): параметры запроса.
 
         Returns:
@@ -126,24 +126,29 @@ class Parser:
         return form_data
 
     async def _get_price_and_status(
-        self, ids_products: list[int], params: Params
+        self,
+        ids_products: list[int],
+        params: Params,
+        cookies: dict[str, str],
     ) -> PriceAndStatus:
-        """Отдаёт цены и статус по продуктам.
+        """Отдаёт цены и статус по товарам.
 
         Args:
-            ids_products (list[int]): ids продуктов.
+            ids_products (list[int]): ids товаров.
             params (Params): параметры запроса.
+            cookies (dict[str, str]): куки.
 
         Returns:
-            PriceAndStatus: цены и статус продуктов.
+            PriceAndStatus: цены и статус товаров.
         """
         params = self._get_form_data_products_info(ids_products, params)
-        headers = {'Authorization': self.config.AUTHORIZATION}
+        headers = {'Authorization': Config.AUTHORIZATION}
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                self.config.URL_PRODUCTS_CATALOG_INFO,
+                Config.URL_PRODUCTS_CATALOG_INFO,
                 headers=headers,
                 data=params,
+                cookies=cookies,
             ) as response:
                 data = await response.json()
                 return data['data']['products']
@@ -151,6 +156,14 @@ class Parser:
     def _get_ids_products_and_packings_variants(
         self, products: ResponseProducts
     ) -> tuple[list[int], PackingVariants]:
+        """Отдаёт id и варианты упаковок товаров.
+
+        Args:
+            products (ResponseProducts): данные по товарам.
+
+        Returns:
+            tuple[list[int], PackingVariants]: id и варианты упаковок товаров.
+        """
         ids_products = []
         packings_variants = []
         for product_response in products:
@@ -182,13 +195,17 @@ class Parser:
                         packing_variant['price'] = variant['price']
 
     async def _set_price_and_status_in_data(
-        self, data: ResponseData, params: Params
+        self,
+        data: ResponseData,
+        params: Params,
+        cookies: dict[str, str],
     ) -> ResponseData:
         """Добавляет цену и статус к данным.
 
         Args:
             data (ResponseData): данные из запроса.
             params (Params): параметры запроса.
+            cookies (dict[str, str]): куки.
 
         Returns:
             ResponseData: данные из запроса с ценой и статусом.
@@ -199,7 +216,9 @@ class Parser:
         if not ids_products:
             return data
         prices_statuses = await self._get_price_and_status(
-            ids_products, params
+            ids_products,
+            params,
+            cookies,
         )
         self._set_price_and_status_in_data_packings_variants(
             prices_statuses, packings_variants
@@ -215,7 +234,7 @@ class Parser:
         """Отдаёт данные со страницы категории товаров.
 
         Args:
-            url (str): URL страницы продуктов.
+            url (str): URL страницы товаров.
             params (Params): параметры запроса.
             cookies (dict[str, str] | object, optional):
                 куки. По умолчанию __default.
@@ -224,8 +243,8 @@ class Parser:
             ResponseData: данные ответа.
         """
         if cookies is self.__default:
-            cookies = ''
-        headers = {'Authorization': self.config.AUTHORIZATION}
+            cookies = {}
+        headers = {'Authorization': Config.AUTHORIZATION}
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 url,
@@ -233,7 +252,9 @@ class Parser:
                 cookies=cookies,
             ) as response:
                 return await self._set_price_and_status_in_data(
-                    await response.json(), params
+                    await response.json(),
+                    params,
+                    cookies,
                 )
 
     async def _get_start_products_page(
@@ -259,20 +280,21 @@ class Parser:
         params: Params,
         total_pages: int,
         start_products: ResponseProducts,
+        cookies: dict[str, str] | object = __default,
     ) -> ResponseData:
         """_summary_
 
         Args:
             params (Params): параметры запроса.
             total_pages (int): количество страниц.
-            start_products (ResponseProducts): продукты стартовой страницы.
+            start_products (ResponseProducts): товары стартовой страницы.
 
         Returns:
-            ResponseData: список всех продуктов категории.
+            ResponseData: список всех товаров категории.
         """
         lists_products = await asyncio.gather(
             *[
-                self._get_products_page(url, params)
+                self._get_products_page(url, params, cookies)
                 for url in self._get_all_url_products_page(params, total_pages)
             ]
         )
@@ -281,13 +303,13 @@ class Parser:
         return start_products
 
     def _filter_products_data(self, data: ResponseProducts) -> ProductsData:
-        """Фильтрует данные по продуктам из запроса.
+        """Фильтрует данные по товарам из запроса.
 
         Args:
-            data (ResponseProducts): продукты из запроса.
+            data (ResponseProducts): товары из запроса.
 
         Returns:
-            ProductsData: отфильтрованные продукты.
+            ProductsData: отфильтрованные товары.
         """
         products = []
         for product_response in data:
@@ -305,7 +327,7 @@ class Parser:
                         'id': id,
                         'title': packing_variant['title'],
                         'price': packing_variant['price'],
-                        'url': f'{self.config.URL_PRODUCT}?offerId={id}',
+                        'url': f'{Config.URL_PRODUCT}?offerId={id}',
                     }
                 )
             if product['packing_variant']:
@@ -334,23 +356,51 @@ class Parser:
         if total_pages == 1:
             return self._filter_products_data(products)
         products = await self._get_all_products_page(
-            params, total_pages, products
+            params, total_pages, products, cookies
         )
         return self._filter_products_data(products)
 
-    def parsing(
+    async def _save_products(
+        self,
+        products: ProductsData,
+        city: str,
+        category: dict[str, str],
+    ) -> None:
+        """Сохранение спаршенных товаров в JSON.
+
+        Args:
+            products (ProductsData): список товаров.
+            city (str): название города.
+            category (dict[str, str]): данные по категории.
+        """
+        data = {
+            'parent_category': category['title'],
+            'category': category['title_parent'],
+            'products': products,
+        }
+        city_dir = join('cities', city)
+        Path(city_dir).mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+        file_path = join(city_dir, f'{slugify(category['title'])}.json')
+        async with aiofiles.open(file_path, 'w', encoding='utf-8') as file:
+            await file.write(json.dumps(data, ensure_ascii=False))
+
+    async def parsing(
         self,
         params: Params,
+        city: str,
         cookies: dict[str, str] | object = __default,
-    ) -> ProductsData:
+    ) -> None:
         """Старт парсинга товаров.
 
         Args:
             params (Params): параметры запроса.
+            city (str): название города.
             cookies (dict[str, str] | object, optional):
                 куки. По умолчанию __default.
-
-        Returns:
-            ProductsData: список товаров.
         """
-        return asyncio.run(self._get_products(params, cookies))
+        category = Config.CATEGORIES[params['category_id']]
+        products = await self._get_products(params, cookies)
+        await self._save_products(products, city, category)

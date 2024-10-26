@@ -1,7 +1,12 @@
 import os
+import json
+
 from dotenv import load_dotenv
 
 load_dotenv()
+
+with open('categories.json', 'r', encoding='utf-8') as file:
+    CATEGORIES = json.load(file)
 
 
 class Config:
@@ -10,13 +15,16 @@ class Config:
     Attributes:
         AUTHORIZATION (str): данные для авторизации.
         URL_GET_TOKEN (str): URL получения токена.
-        URL_PRODUCTS_CATALOG (str): URL категории продуктов.
-        URL_PRODUCTS_CATALOG_INFO (str): URL продуктов с доп. информацией.
-        URL_PRODUCT (str): URL продукта.
+        URL_PRODUCTS_CATALOG (str): URL категории товаров.
+        URL_PRODUCTS_CATALOG_INFO (str): URL товаров с доп. информацией.
+        URL_PRODUCT (str): URL товара.
         SALT (str): соль для формирования 'sign'.
-        COOKIE_SITIES (dict[str, str]):
+        COOKIE_SITIES (dict[str, dict[str, str]]):
             словарь город-значение в cookie.
-        SORT (str): параметр сортировки запрашиваемых данных.
+        COUNT (int): количество товаров на странице.
+        PAGE (int): страница начала парсинга.
+        SORTS (tuple[str, ...]): возможные сортировки товаров.
+        CATEGORIES (dict[int, dict[str, str]]): категории.
     """
 
     AUTHORIZATION = os.getenv(
@@ -34,4 +42,7 @@ class Config:
         'moscow': {'selected_city_code': '0000073738'},
         'saint-petersburg': {'selected_city_code': '0000103664'},
     }
-    SORT = 'popular'
+    SORTS = ('popular', 'up-price', 'down-price', 'novinki')
+    CATEGORIES = CATEGORIES
+    COUNT = 10
+    PAGE = 1
