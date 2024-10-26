@@ -53,10 +53,10 @@ class Parser:
         for value in params.values():
             values.append(self._get_hash(value))
         values.sort()
-        sign = Config.SALT
+        sign = [Config.SALT]
         for value in values:
-            sign += value
-        return self._get_hash(sign)
+            sign.append(value)
+        return self._get_hash(''.join(sign))
 
     async def _get_token(self) -> str:
         """Отдаёт токен.
@@ -282,7 +282,7 @@ class Parser:
         start_products: ResponseProducts,
         cookies: dict[str, str] | object = __default,
     ) -> ResponseData:
-        """_summary_
+        """Отдаёт список всех товаров категории.
 
         Args:
             params (Params): параметры запроса.

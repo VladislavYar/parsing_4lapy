@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Парсер мобильного приложения \"Четыре лапы\"."
 authors = ["Vladislav Yaremenko <vlad.yaremenko.98@yandex.ru>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
