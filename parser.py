@@ -322,12 +322,15 @@ class Parser:
                 if not packing_variant['isAvailable']:
                     continue
                 id = packing_variant['id']
+                params = {'offerId': id}
+                params['sign'] = self._get_sign(params)
+                params = parse.urlencode(params)
                 product['packing_variant'].append(
                     {
                         'id': id,
                         'title': packing_variant['title'],
                         'price': packing_variant['price'],
-                        'url': f'{Config.URL_PRODUCT}?offerId={id}',
+                        'url': f'{Config.URL_PRODUCT}?{params}',
                     }
                 )
             if product['packing_variant']:

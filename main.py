@@ -12,7 +12,7 @@ async def main() -> None:
         'count': Config.COUNT,
         'page': Config.PAGE,
         'sort': args.sort,
-        'category_id': args.category,
+        'category_id': str(args.category),
     }
     await asyncio.gather(
         *[
