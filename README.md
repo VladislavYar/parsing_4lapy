@@ -15,7 +15,7 @@
 </div>
   <p align="center">Файлы с товарами сохраняются по пути <code>корневая папка проекта <b>/</b> slug города <b>/</b> slug категории.json</code>.</p>
   <p align="center">Парсятся не только <b>регулярная цена</b> и <b>промо цена</b>, а все разновидности цен для учёта скидок от количества и т.д., так же товар парсится сразу со всеми вариантами упаковок.</p>
-    <p align="center">Аргументы: <code>id</code> категории <i>(не обязательный)</i> - <code>-c (--category) int</code>, сортировка категории <i>(не обязательный)</i> - <code>-s (--sort) popular | "up-price" "down-price" | novinki</code>.</p>
+    <p align="center">Аргументы: <code>id</code> категории <i>(не обязательный)</i> - <code>-c (--category) int</code>, сортировка категории <i>(не обязательный)</i> - <code>-s (--sort) popular | "up-price" | "down-price" | novinki</code>.</p>
   <p align="center">Все команды выполнять из корневой папки проекта.</p>
 <hr>
 
